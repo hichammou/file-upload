@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -46,22 +47,16 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentDir, err := os.Getwd()
+	err = os.Mkdir("uploads", os.ModePerm)
 	if err != nil {
-		log.Print(err, " os.Getwd")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		if !errors.Is(err, os.ErrExist) {
+			log.Print(err, " os.Mkdir")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
-	uploadsDir := filepath.Join(currentDir, "uploads")
-	// if _, err := os.Stat(uploadsDir); os.IsExist(err) {
-	// 	err = os.Mkdir(uploadsDir, os.ModePerm)
-	// 	if err != nil {
-	// 		log.Print(err, " os.Mkdir")
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// }
+	uploadsDir := "./uploads"
 
 	dst, err := os.Create(filepath.Join(uploadsDir, handler.Filename))
 	if err != nil {

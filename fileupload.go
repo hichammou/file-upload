@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -24,55 +25,53 @@ func main() {
 }
 
 func uploadFile(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(20 << 10)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	const maxMemory = 10 << 20
+	if err := r.ParseMultipartForm(maxMemory); err != nil {
+		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Failed to retrieve file from form", http.StatusBadRequest)
 		return
 	}
-
 	defer file.Close()
 
-	log.Printf("name: %v, size: %v, ", header.Filename, header.Size)
+	// Sanitize filename to prevent file traversal attacks
+	safeFilename := filepath.Base(header.Filename)
 
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		log.Print(err, "io.ReadAll")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = os.Mkdir("uploads", os.ModePerm)
-	if err != nil {
-		if !errors.Is(err, os.ErrExist) {
-			log.Print(err, " os.Mkdir")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+	// Create uploads directory if not exists
+	uploadsDir := "./uploads"
+	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
+		err = os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			if !errors.Is(err, os.ErrExist) {
+				log.Printf("Error while creating uplods directory %v", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
-	uploadsDir := "./uploads"
-
-	dst, err := os.Create(filepath.Join(uploadsDir, header.Filename))
+	// Create destination file
+	dstPath := filepath.Join(uploadsDir, safeFilename)
+	dst, err := os.Create(dstPath)
 	if err != nil {
-		log.Print(err, " os.Create")
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("Error creating destination path %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
-
 	defer dst.Close()
-	_, err = dst.Write(fileBytes)
-	if err != nil {
-		log.Print(err, "dst.Write")
-		w.WriteHeader(http.StatusInternalServerError)
+
+	// Write file to destination
+	if _, err = io.Copy(dst, file); err != nil {
+		log.Printf("Error writing file %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("File uploaded successfully"))
+	w.Write([]byte(fmt.Sprintf("File %s uploaded successfully", safeFilename)))
 }

@@ -30,7 +30,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, handler, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -38,7 +38,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	defer file.Close()
 
-	log.Printf("name: %v, size: %v, ", handler.Filename, handler.Size)
+	log.Printf("name: %v, size: %v, ", header.Filename, header.Size)
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
@@ -58,7 +58,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	uploadsDir := "./uploads"
 
-	dst, err := os.Create(filepath.Join(uploadsDir, handler.Filename))
+	dst, err := os.Create(filepath.Join(uploadsDir, header.Filename))
 	if err != nil {
 		log.Print(err, " os.Create")
 		w.WriteHeader(http.StatusInternalServerError)

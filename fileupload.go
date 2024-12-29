@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -63,10 +64,15 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	// Sanitize filename to prevent file traversal attacks
 	safeFilename := filepath.Base(header.Filename)
 
+	destFolder := "images"
+	if strings.Contains(detectMimeType, "pdf") {
+		destFolder = "pdfs"
+	}
+
 	// Create uploads directory if not exists
-	uploadsDir := "./uploads"
+	uploadsDir := filepath.Join("uploads", destFolder)
 	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
-		err = os.Mkdir("uploads", os.ModePerm)
+		err = os.MkdirAll(uploadsDir, os.ModePerm)
 		if err != nil {
 			if !errors.Is(err, os.ErrExist) {
 				log.Printf("Error while creating uplods directory %v", err)

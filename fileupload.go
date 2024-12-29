@@ -52,6 +52,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not read file", http.StatusInternalServerError)
 		return
 	}
+	file.Seek(0, io.SeekStart)
 
 	detectMimeType := http.DetectContentType(fileHeader)
 	if !allowedMIMETypes[detectMimeType] {

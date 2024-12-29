@@ -10,6 +10,14 @@ import (
 	"path/filepath"
 )
 
+var (
+	allowedMIMETypes map[string]bool = map[string]bool{
+		"image/png":       true,
+		"image/jpeg":      true,
+		"application/pdf": true,
+	}
+)
+
 func main() {
 	mux := http.NewServeMux()
 
@@ -37,6 +45,19 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Validate file MIME type
+	fileHeader := make([]byte, 512) // Read first 512 bytes for MIME detection
+	if _, err = file.Read(fileHeader); err != nil {
+		http.Error(w, "Could not read file", http.StatusInternalServerError)
+		return
+	}
+
+	detectMimeType := http.DetectContentType(fileHeader)
+	if !allowedMIMETypes[detectMimeType] {
+		http.Error(w, fmt.Sprintf("%s is not allowed", detectMimeType), http.StatusBadRequest)
+		return
+	}
 
 	// Sanitize filename to prevent file traversal attacks
 	safeFilename := filepath.Base(header.Filename)
